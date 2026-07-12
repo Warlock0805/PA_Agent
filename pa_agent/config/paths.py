@@ -21,6 +21,7 @@ RECORDS_PENDING_DIR: Path = PROJECT_ROOT / "records" / "pending"
 EXPERIENCE_DIR: Path = PROJECT_ROOT / "experience"
 CONFIG_DIR: Path = PROJECT_ROOT / "config"
 LOGS_DIR: Path = PROJECT_ROOT / "logs"
+CODEX_BRIDGE_DIR: Path = PROJECT_ROOT / "runtime" / "codex_bridge"
 
 # ── Individual file paths ─────────────────────────────────────────────────────
 FEISHU_JSON_LEGACY_PATH: Path = CONFIG_DIR / "feishu.json"
