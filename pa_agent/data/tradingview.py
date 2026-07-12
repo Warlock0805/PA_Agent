@@ -19,6 +19,7 @@ from pa_agent.data.market_defaults import (
 )
 from pa_agent.data.tv_symbol_lookup import TvSymbolNotFoundError, is_tv_name_input
 from pa_agent.data.tradingview_errors import format_tradingview_fetch_error
+from pa_agent.data.tradingview_proxy import TradingViewProxy, use_tradingview_proxy
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,13 @@ TV_EXCHANGE_PRESETS: tuple[str, ...] = (
 class TradingViewSource(DataSource):
     """Live K-line data from TradingView via tvdatafeed."""
 
-    def __init__(self, username: str = "", password: str = "") -> None:
+    def __init__(
+        self,
+        username: str = "",
+        password: str = "",
+        *,
+        proxy: TradingViewProxy | None = None,
+    ) -> None:
         self._username = username
         self._password = password
         self._tv = None          # tvDatafeed instance
@@ -86,6 +93,7 @@ class TradingViewSource(DataSource):
         self._symbol: str = ""
         self._timeframe: str = ""
         self._exchange: str = ""
+        self._proxy = proxy or TradingViewProxy()
         # Mutex: tvDatafeed is NOT thread-safe — its get_hist() creates a
         # WebSocket and stores it on self.ws; concurrent calls clobber the
         # same socket and cause C++ segfaults.
@@ -100,6 +108,10 @@ class TradingViewSource(DataSource):
     def set_exchange(self, exchange: str) -> None:
         """Set TradingView exchange id (e.g. ``BINANCE``); empty = auto-detect."""
         self._exchange = (exchange or "").strip().upper()
+
+    def set_proxy(self, proxy: TradingViewProxy | None) -> None:
+        """Set the proxy used by subsequent TradingView WebSocket requests."""
+        self._proxy = proxy or TradingViewProxy()
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -222,12 +234,13 @@ class TradingViewSource(DataSource):
         last_exc: BaseException | None = None
         for attempt in range(1, _TV_FETCH_RETRIES + 1):
             try:
-                df = self._tv.get_hist(
-                    symbol=symbol,
-                    exchange=exchange,
-                    interval=interval,
-                    n_bars=n_bars,
-                )
+                with use_tradingview_proxy(self._proxy):
+                    df = self._tv.get_hist(
+                        symbol=symbol,
+                        exchange=exchange,
+                        interval=interval,
+                        n_bars=n_bars,
+                    )
                 if df is not None and not df.empty:
                     return df
                 logger.warning(

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from pa_agent.data.tradingview_proxy import TradingViewProxy
+from pa_agent.data.tradingview_proxy import TradingViewProxy, use_tradingview_proxy
 
 
 def test_enabled_socks5_proxy_maps_to_websocket_options() -> None:
@@ -29,3 +29,42 @@ def test_enabled_proxy_rejects_invalid_address(host: str, port: int) -> None:
 
     with pytest.raises(ValueError, match="TradingView 代理地址无效"):
         proxy.websocket_options()
+
+
+def test_proxy_context_forwards_options_and_restores_factory(monkeypatch) -> None:
+    import tvDatafeed.main as tv_main
+
+    seen: dict[str, object] = {}
+
+    def fake_connection(*args, **kwargs):
+        seen.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(tv_main, "create_connection", fake_connection)
+    proxy = TradingViewProxy(True, "http", "127.0.0.1", 7890)
+
+    with use_tradingview_proxy(proxy):
+        tv_main.create_connection("wss://example.invalid")
+
+    assert seen["http_proxy_host"] == "127.0.0.1"
+    assert seen["http_proxy_port"] == 7890
+    assert seen["proxy_type"] == "http"
+    assert tv_main.create_connection is fake_connection
+
+
+def test_disabled_proxy_context_keeps_factory_unchanged(monkeypatch) -> None:
+    import tvDatafeed.main as tv_main
+
+    seen: dict[str, object] = {}
+
+    def fake_connection(*args, **kwargs):
+        seen.update(kwargs)
+        return object()
+
+    monkeypatch.setattr(tv_main, "create_connection", fake_connection)
+
+    with use_tradingview_proxy(TradingViewProxy()):
+        tv_main.create_connection("wss://example.invalid")
+
+    assert seen == {}
+    assert tv_main.create_connection is fake_connection

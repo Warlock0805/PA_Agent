@@ -1,6 +1,8 @@
 """TradingView-only WebSocket proxy configuration."""
 from __future__ import annotations
 
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -9,6 +11,7 @@ if TYPE_CHECKING:
 
 
 ProxyType = Literal["http", "socks5"]
+_PATCH_LOCK = threading.RLock()
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,3 +44,26 @@ class TradingViewProxy:
             "http_proxy_port": self.port,
             "proxy_type": self.proxy_type,
         }
+
+
+@contextmanager
+def use_tradingview_proxy(proxy: TradingViewProxy | None):
+    """Temporarily apply *proxy* to tvDatafeed WebSocket creation only."""
+    if proxy is None or not proxy.enabled:
+        yield
+        return
+
+    import tvDatafeed.main as tv_main
+
+    options = proxy.websocket_options()
+    with _PATCH_LOCK:
+        original = tv_main.create_connection
+
+        def create_connection_with_proxy(*args, **kwargs):
+            return original(*args, **{**kwargs, **options})
+
+        tv_main.create_connection = create_connection_with_proxy
+        try:
+            yield
+        finally:
+            tv_main.create_connection = original

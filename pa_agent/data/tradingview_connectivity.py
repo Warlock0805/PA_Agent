@@ -5,6 +5,8 @@ import concurrent.futures
 import logging
 import time
 
+from pa_agent.data.tradingview_proxy import TradingViewProxy, use_tradingview_proxy
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_PROBE_TIMEOUT_S = 20.0
@@ -12,19 +14,22 @@ _DEFAULT_PROBE_ATTEMPTS = 3
 _DEFAULT_RETRY_DELAY_S = 3.0
 
 
-def _probe_once(*, timeout_s: float) -> tuple[bool, str | None, bool]:
+def _probe_once(
+    *, timeout_s: float, proxy: TradingViewProxy | None
+) -> tuple[bool, str | None, bool]:
     """Single probe. Returns (ok, failure_detail, retryable)."""
 
     def _probe() -> None:
         from tvDatafeed import Interval, TvDatafeed  # type: ignore[import]
 
         tv = TvDatafeed()
-        df = tv.get_hist(
-            symbol="XAUUSD",
-            exchange="OANDA",
-            interval=Interval.in_1_minute,
-            n_bars=2,
-        )
+        with use_tradingview_proxy(proxy):
+            df = tv.get_hist(
+                symbol="XAUUSD",
+                exchange="OANDA",
+                interval=Interval.in_1_minute,
+                n_bars=2,
+            )
         if df is None or getattr(df, "empty", True):
             raise RuntimeError("TradingView 返回空数据")
 
@@ -53,13 +58,14 @@ def check_tradingview_connectivity(
     timeout_s: float = _DEFAULT_PROBE_TIMEOUT_S,
     max_attempts: int = _DEFAULT_PROBE_ATTEMPTS,
     retry_delay_s: float = _DEFAULT_RETRY_DELAY_S,
+    proxy: TradingViewProxy | None = None,
 ) -> tuple[bool, str | None]:
     """Try a minimal OANDA:XAUUSD fetch with retries; return (ok, failure_detail)."""
     attempts = max(1, int(max_attempts))
     last_detail: str | None = None
 
     for attempt in range(1, attempts + 1):
-        ok, detail, retryable = _probe_once(timeout_s=timeout_s)
+        ok, detail, retryable = _probe_once(timeout_s=timeout_s, proxy=proxy)
         if ok:
             if attempt > 1:
                 logger.info(

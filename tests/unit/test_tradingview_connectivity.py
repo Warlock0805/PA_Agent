@@ -1,9 +1,11 @@
 """TradingView outbound connectivity probe."""
 from __future__ import annotations
 
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 from pa_agent.data.tradingview_connectivity import check_tradingview_connectivity
+from pa_agent.data.tradingview_proxy import TradingViewProxy
 
 
 def _mock_tv_ok() -> tuple[MagicMock, MagicMock]:
@@ -78,3 +80,30 @@ def test_check_tradingview_connectivity_exhausts_retries() -> None:
     assert detail is not None
     assert "已自动重试 3 次" in detail
     assert tv_cls.return_value.get_hist.call_count == 3
+
+
+def test_check_tradingview_connectivity_uses_given_proxy(monkeypatch) -> None:
+    proxy = TradingViewProxy(True, "http", "127.0.0.1", 7890)
+    mock_interval, mock_df = _mock_tv_ok()
+    seen: list[TradingViewProxy | None] = []
+
+    @contextmanager
+    def record_proxy(value):
+        seen.append(value)
+        yield
+
+    monkeypatch.setattr(
+        "pa_agent.data.tradingview_connectivity.use_tradingview_proxy", record_proxy
+    )
+    with (
+        patch("tvDatafeed.Interval", mock_interval),
+        patch("tvDatafeed.TvDatafeed") as tv_cls,
+    ):
+        tv_cls.return_value.get_hist.return_value = mock_df
+        ok, detail = check_tradingview_connectivity(
+            timeout_s=5.0, max_attempts=1, proxy=proxy
+        )
+
+    assert ok is True
+    assert detail is None
+    assert seen == [proxy]

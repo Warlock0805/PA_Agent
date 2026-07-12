@@ -7,11 +7,13 @@ symbol/timeframe switch can abort an in-flight request.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from unittest.mock import MagicMock
 
 import pytest
 
 from pa_agent.data.tradingview import TradingViewSource
+from pa_agent.data.tradingview_proxy import TradingViewProxy
 
 
 def _make_source_with_mock_tv() -> tuple[TradingViewSource, MagicMock]:
@@ -91,3 +93,27 @@ def test_subscribe_rejects_unknown_timeframe() -> None:
     src, _tv = _make_source_with_mock_tv()
     with pytest.raises(ValueError):
         src.subscribe("XAUUSD", "7m")
+
+
+def test_source_uses_its_proxy_while_fetching(monkeypatch) -> None:
+    proxy = TradingViewProxy(True, "socks5", "127.0.0.1", 7890)
+    src = TradingViewSource(proxy=proxy)
+    tv = MagicMock()
+    tv.ws = None
+    df = MagicMock()
+    df.empty = False
+    tv.get_hist.return_value = df
+    src._tv = tv
+    seen: list[TradingViewProxy | None] = []
+
+    @contextmanager
+    def record_proxy(value):
+        seen.append(value)
+        yield
+
+    monkeypatch.setattr("pa_agent.data.tradingview.use_tradingview_proxy", record_proxy)
+
+    assert src._fetch_hist_with_retry(
+        symbol="XAUUSD", exchange="OANDA", interval=object(), n_bars=10
+    ) is df
+    assert seen == [proxy]
