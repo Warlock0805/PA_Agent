@@ -1,0 +1,94 @@
+name: 智能体任务
+description: 为 Codex、Terra 或其他智能体提供可执行、可验证、授权明确的任务规格
+title: "[Agent] "
+labels: []
+body:
+  - type: dropdown
+    id: type
+    attributes:
+      label: 任务类型
+      options:
+        - 修复
+        - 功能
+        - 重构
+        - 文档
+        - Harness
+        - 只读调查
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: 上下文入口
+      description: 列出必须先读的代码、测试、文档、错误或截图。
+      placeholder: AGENTS.md；pa_agent/...；tests/...
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: 目标与可观察结果
+      description: 描述用户最终能看到或验证的行为。
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: 非目标
+      description: 明确本任务不处理的功能、重构和平台。
+    validations:
+      required: true
+  - type: textarea
+    id: allowed
+    attributes:
+      label: 允许修改
+      placeholder: 精确文件、目录或模块
+    validations:
+      required: true
+  - type: textarea
+    id: forbidden
+    attributes:
+      label: 禁止修改
+      placeholder: 配置、Prompt、API 路由、格式、用户数据等
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 使用可观察行为逐条列出。
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: 验证命令
+      description: 列出定向测试、回归、lint、构建或人工验收。
+      render: powershell
+    validations:
+      required: true
+  - type: checkboxes
+    id: authority
+    attributes:
+      label: 外部影响与授权
+      options:
+        - label: 允许网络访问
+        - label: 允许使用真实 API/账号并可能产生费用
+        - label: 允许打开可见 GUI、MT5 或浏览器
+        - label: 允许发送通知或写入外部系统
+        - label: 允许提交并推送分支
+        - label: 允许创建 PR/Issue 或发布部署
+  - type: textarea
+    id: risks
+    attributes:
+      label: 回归风险与证据要求
+      description: 指出最可能破坏的链路，以及交付必须附带的证据。
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 前置依赖与后续任务
+      description: 没有则写“无”；不要把后续任务混入当前范围。
+    validations:
+      required: true

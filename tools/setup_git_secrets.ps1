@@ -32,5 +32,12 @@ foreach ($p in $checks) {
 }
 
 Write-Host ""
+Write-Host "Checking project harness..."
+& powershell -NoProfile -ExecutionPolicy Bypass -File tools\check_project_harness.ps1
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Harness check failed; fix the reported drift before committing."
+}
+
+Write-Host ""
 Write-Host "Done. Pre-commit hook will block settings/logs/records from being committed."
 Write-Host "Your config/settings.json stays local; use config/settings.example.json as reference."

@@ -22,3 +22,15 @@ jobs:
 
       - name: Verify install
         run: python -c "import pa_agent; print('OK')"
+
+      - name: Check Harness Engineering
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools\check_project_harness.ps1
+
+      - name: Offline smoke tests
+        run: >-
+          python -m pytest
+          tests/unit/test_api_key_configured.py
+          tests/unit/test_settings_round_trip.py
+          tests/unit/test_client_factory.py
+          -q

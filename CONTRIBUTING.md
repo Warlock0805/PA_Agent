@@ -2,6 +2,10 @@
 
 感谢你对 PA Agent 的关注。本项目欢迎 Issue 与 Pull Request。
 
+智能体或自动化贡献开始前先读 [`AGENTS.md`](AGENTS.md)，实施与授权流程见
+[`docs/WORKFLOW.md`](docs/WORKFLOW.md)，完整验证矩阵见
+[`docs/TESTING.md`](docs/TESTING.md)。
+
 ## 开发环境
 
 1. Windows 10/11，Python 3.11+
@@ -20,8 +24,9 @@
 ## 提交代码前
 
 ```cmd
-pytest -m "not e2e"
-ruff check pa_agent tests
+.\.venv\Scripts\python.exe -m pytest -m "not live and not e2e" -q
+.\.venv\Scripts\python.exe -m ruff check pa_agent tests
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\check_project_harness.ps1
 ```
 
 （若已安装 `black`，可按团队习惯格式化。）
