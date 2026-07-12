@@ -69,6 +69,11 @@ class GeneralSettings(BaseModel):
     kline_adjust: Literal["qfq", "hfq", "none"] = "qfq"
     #: TradingView 交易所；空字符串 =（自动）依次探测预设列表
     last_tradingview_exchange: str = ""
+    #: TradingView 专用本地代理；默认关闭且不影响其他数据源
+    tradingview_proxy_enabled: bool = False
+    tradingview_proxy_type: Literal["http", "socks5"] = "http"
+    tradingview_proxy_host: str = ""
+    tradingview_proxy_port: int = Field(default=0, ge=0, le=65535)
     last_symbol: str = "XAUUSDm"
     last_timeframe: str = "15m"
     decision_flow_auto_play: bool = True

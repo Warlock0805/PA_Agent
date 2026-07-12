@@ -43,6 +43,23 @@ def test_round_trip(tmp_path):
     assert loaded.provider.model == original.provider.model
 
 
+def test_tradingview_proxy_round_trip(tmp_path: Path) -> None:
+    path = tmp_path / "settings.json"
+    original = Settings()
+    original.general.tradingview_proxy_enabled = True
+    original.general.tradingview_proxy_type = "socks5"
+    original.general.tradingview_proxy_host = "127.0.0.1"
+    original.general.tradingview_proxy_port = 7890
+
+    save_settings(original, path)
+    loaded = load_settings(path)
+
+    assert loaded.general.tradingview_proxy_enabled is True
+    assert loaded.general.tradingview_proxy_type == "socks5"
+    assert loaded.general.tradingview_proxy_host == "127.0.0.1"
+    assert loaded.general.tradingview_proxy_port == 7890
+
+
 def test_api_key_present_on_disk(tmp_path):
     """The saved JSON contains the plaintext API key."""
     p = tmp_path / "settings.json"
