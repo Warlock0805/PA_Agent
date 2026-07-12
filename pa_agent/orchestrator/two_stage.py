@@ -334,6 +334,12 @@ class TwoStageOrchestrator:
 
         return ValidationSettings()
 
+    def _set_client_stage_context(self, stage: str) -> None:
+        """Set optional bridge metadata without constraining existing clients."""
+        setter = getattr(self._client, "set_stage_context", None)
+        if callable(setter):
+            setter(stage)
+
     # ── Public API ────────────────────────────────────────────────────────────
 
     def submit(
@@ -452,6 +458,7 @@ class TwoStageOrchestrator:
                 on_stage1_content(chunk)
 
         try:
+            self._set_client_stage_context("stage1")
             reply_s1 = self._stream_chat_resilient(
                 messages_s1,
                 on_reasoning_token=_on_s1_reasoning,
@@ -523,6 +530,7 @@ class TwoStageOrchestrator:
             on_event(OrchestratorEvent.Stage1Retry)
             s1_streamed_reasoning = False
             s1_streamed_content = False
+            self._set_client_stage_context("stage1")
             r = self._client.stream_chat(
                 msgs,
                 on_reasoning_token=_on_s1_reasoning,
@@ -742,6 +750,7 @@ class TwoStageOrchestrator:
                 on_stage2_content(chunk)
 
         try:
+            self._set_client_stage_context("stage2")
             reply_s2 = self._stream_chat_resilient(
                 messages_s2,
                 on_reasoning_token=_on_s2_reasoning,
@@ -829,6 +838,7 @@ class TwoStageOrchestrator:
             on_event(OrchestratorEvent.Stage2Retry)
             s2_streamed_reasoning = False
             s2_streamed_content = False
+            self._set_client_stage_context("stage2")
             r = self._client.stream_chat(
                 msgs,
                 on_reasoning_token=_on_s2_reasoning,

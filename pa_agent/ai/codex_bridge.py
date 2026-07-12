@@ -5,12 +5,14 @@ import json
 import os
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from pa_agent.ai.deepseek_client import CancelledError
+from pa_agent.ai.deepseek_client import AIReply, AIUsage, CancelledError
+from pa_agent.config.settings import AIProviderSettings
 
 PROTOCOL_VERSION = 1
 _VALID_STAGES = {"stage1", "stage2"}
@@ -176,3 +178,103 @@ class CodexBridgeStore:
             if time.monotonic() >= deadline:
                 raise TimeoutError(f"等待 Codex 响应超时: {request_id}")
             time.sleep(min(self.poll_interval_s, max(0.0, deadline - time.monotonic())))
+
+
+class CodexBridgeClient:
+    """AI-client-compatible adapter that waits for a Codex conversation response."""
+
+    def __init__(
+        self,
+        settings: AIProviderSettings,
+        *,
+        store: CodexBridgeStore | None = None,
+        bridge_dir: Path | None = None,
+    ) -> None:
+        if store is None:
+            if bridge_dir is None:
+                from pa_agent.config.paths import CODEX_BRIDGE_DIR
+
+                bridge_dir = CODEX_BRIDGE_DIR
+            store = CodexBridgeStore(bridge_dir)
+        self._settings = settings
+        self._store = store
+        self._stage_context = "stage1"
+
+    def update_provider(self, settings: AIProviderSettings) -> None:
+        self._settings = settings
+
+    def set_stage_context(self, stage: str) -> None:
+        if stage not in _VALID_STAGES:
+            raise ValueError(f"无效 Codex 阶段: {stage}")
+        self._stage_context = stage
+
+    def chat(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        thinking: bool | None = None,
+        reasoning_effort: str | None = None,
+        context_window: int | None = None,
+        cancel_token: Any = None,
+        timeout_s: float = 600.0,
+    ) -> AIReply:
+        return self.stream_chat(
+            messages,
+            thinking=thinking,
+            reasoning_effort=reasoning_effort,
+            cancel_token=cancel_token,
+            timeout_s=timeout_s,
+        )
+
+    def stream_chat(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        on_reasoning_token: Callable[[str], None] | None = None,
+        on_content_token: Callable[[str], None] | None = None,
+        thinking: bool | None = None,
+        reasoning_effort: str | None = None,
+        cancel_token: Any = None,
+        timeout_s: float = 600.0,
+    ) -> AIReply:
+        if cancel_token is not None and cancel_token.is_set():
+            raise CancelledError("Codex bridge request cancelled before submit")
+        request = self._store.create_request(
+            messages=messages,
+            stage=self._stage_context,
+            timeout_s=timeout_s,
+        )
+        started_at = time.monotonic()
+        response = self._store.wait_for_response(
+            request.request_id,
+            timeout_s=timeout_s,
+            cancel_token=cancel_token,
+        )
+        content = str(response.get("content") or "")
+        reasoning = str(response.get("reasoning_content") or "")
+        if reasoning and on_reasoning_token is not None:
+            on_reasoning_token(reasoning)
+        if content and on_content_token is not None:
+            on_content_token(content)
+        latency_ms = (time.monotonic() - started_at) * 1000
+        usage = AIUsage()
+        return AIReply(
+            content=content,
+            reasoning_content=reasoning,
+            raw={
+                "id": request.request_id,
+                "model": "codex-conversation",
+                "content": content,
+                "reasoning_content": reasoning,
+                "usage": {
+                    "prompt_tokens": 0,
+                    "cached_prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0,
+                },
+                "latency_ms": latency_ms,
+            },
+            usage=usage,
+            request_id=request.request_id,
+            latency_ms=latency_ms,
+        )

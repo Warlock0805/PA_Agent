@@ -97,3 +97,35 @@ def test_store_times_out_when_no_response_arrives(tmp_path: Path) -> None:
 
     with pytest.raises(TimeoutError, match="等待 Codex 响应超时"):
         store.wait_for_response(request.request_id, timeout_s=0.03)
+
+
+def test_bridge_client_returns_reply_and_uses_explicit_stage_context(tmp_path: Path) -> None:
+    from pa_agent.ai.codex_bridge import CodexBridgeClient, CodexBridgeStore
+    from pa_agent.config.settings import AIProviderSettings
+
+    store = CodexBridgeStore(tmp_path, poll_interval_s=0.01)
+    client = CodexBridgeClient(AIProviderSettings(runtime_mode="codex"), store=store)
+    client.set_stage_context("stage2")
+
+    def respond() -> None:
+        pending = store.list_pending_requests()
+        assert len(pending) == 1
+        assert pending[0]["stage"] == "stage2"
+        store.write_response(pending[0]["request_id"], content='{"ok":true}')
+
+    timer = threading.Timer(0.03, respond)
+    timer.start()
+    chunks: list[str] = []
+    try:
+        reply = client.stream_chat(
+            [{"role": "user", "content": "阶段二"}],
+            on_content_token=chunks.append,
+            timeout_s=1.0,
+        )
+    finally:
+        timer.join()
+
+    assert reply.content == '{"ok":true}'
+    assert reply.request_id
+    assert reply.usage.total_tokens == 0
+    assert chunks == ['{"ok":true}']
