@@ -1,0 +1,4 @@
+interface:
+  display_name: "PA Agent"
+  short_description: "启动桌面端并处理当前分析请求"
+  default_prompt: "使用 $pa-agent 启动 PA Agent，并处理待处理的市场分析请求。"
