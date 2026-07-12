@@ -1469,7 +1469,15 @@ class MainWindow(QMainWindow):
         # For TradingView, probe connectivity on-demand (not at startup)
         if self._current_data_source_kind() == "tradingview":
             from pa_agent.data.tradingview_connectivity import check_tradingview_connectivity
-            ok, detail = check_tradingview_connectivity()
+            from pa_agent.data.tradingview_proxy import TradingViewProxy
+
+            settings = getattr(self._ctx, "settings", None)
+            proxy = (
+                TradingViewProxy.from_general(settings.general)
+                if settings is not None
+                else None
+            )
+            ok, detail = check_tradingview_connectivity(proxy=proxy)
             if not ok:
                 if detail:
                     logger.info("TradingView unreachable: %s", detail)
