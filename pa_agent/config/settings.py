@@ -7,12 +7,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 DecisionStance = Literal["conservative", "balanced", "aggressive", "extreme_aggressive"]
 DataSourceKind = Literal["mt5", "tradingview", "akshare", "eastmoney", "tushare"]
 NormalizationMode = Literal["strict", "lenient"]
+RuntimeMode = Literal["api", "codex"]
 
 
 class AIProviderSettings(BaseModel):
     """AI provider connection and behaviour settings."""
     model_config = ConfigDict(extra="ignore")
 
+    runtime_mode: RuntimeMode = "api"
     model: str = "deepseek-v4-flash"
     base_url: str = "https://api.deepseek.com"
     api_key: str = ""
@@ -172,6 +174,15 @@ def provider_api_key_configured(settings: Settings | None) -> bool:
     if settings is None:
         return False
     return bool((settings.provider.api_key or "").strip())
+
+
+def provider_analysis_ready(settings: Settings | None) -> bool:
+    """Return whether the selected runtime can accept an analysis request."""
+    if settings is None:
+        return False
+    if settings.provider.runtime_mode == "codex":
+        return True
+    return provider_api_key_configured(settings)
 
 
 # ── Persistence ───────────────────────────────────────────────────────────────

@@ -17,6 +17,7 @@ def test_defaults(tmp_path):
     assert s.provider.thinking is True
     assert s.provider.reasoning_effort == "high"
     assert s.provider.context_window == 2_000_000
+    assert s.provider.runtime_mode == "api"
     assert s.general.analysis_bar_count == 100
     assert s.general.last_symbol == "XAUUSDm"
     assert s.general.last_timeframe == "15m"
@@ -31,10 +32,12 @@ def test_round_trip(tmp_path):
     p = tmp_path / "settings.json"
     original = Settings()
     original.provider.api_key = "sk-test-1234"
+    original.provider.runtime_mode = "codex"
     original.general.last_symbol = "BTCUSDT"
     save_settings(original, p)
     loaded = load_settings(p)
     assert loaded.provider.api_key == "sk-test-1234"
+    assert loaded.provider.runtime_mode == "codex"
     # Crypto symbols migrate to gold defaults on load
     assert loaded.general.last_symbol == "XAUUSDm"
     assert loaded.provider.model == original.provider.model
