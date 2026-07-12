@@ -483,6 +483,9 @@ class MainWindow(QMainWindow):
         )
         ctrl_layout.addWidget(self._tv_exchange_label)
         ctrl_layout.addWidget(self._tv_exchange_combo)
+        self._tv_proxy_btn = QPushButton("TV 代理…")
+        self._tv_proxy_btn.clicked.connect(self._open_tradingview_proxy_dialog)
+        ctrl_layout.addWidget(self._tv_proxy_btn)
 
         # Symbol — editable combo (user can type any MT5 symbol)
         ctrl_layout.addWidget(QLabel("品种:"))
@@ -966,6 +969,7 @@ class MainWindow(QMainWindow):
         for w in (
             getattr(self, "_tv_exchange_label", None),
             getattr(self, "_tv_exchange_combo", None),
+            getattr(self, "_tv_proxy_btn", None),
         ):
             if w is not None:
                 w.setVisible(visible)
@@ -1005,6 +1009,14 @@ class MainWindow(QMainWindow):
 
         if isinstance(data_source, TradingViewSource):
             data_source.set_exchange(self._tv_exchange_text())
+
+    def _apply_tv_proxy_to_source(self, data_source: Any) -> None:
+        from pa_agent.data.tradingview import TradingViewSource
+        from pa_agent.data.tradingview_proxy import TradingViewProxy
+
+        settings = getattr(self._ctx, "settings", None)
+        if isinstance(data_source, TradingViewSource) and settings is not None:
+            data_source.set_proxy(TradingViewProxy.from_general(settings.general))
 
     def _on_tv_probe_status(self, symbol: str, exchange: str, label: str) -> None:
         """Callback from TradingViewSource auto-probe: show current exchange being tried.
@@ -1232,6 +1244,7 @@ class MainWindow(QMainWindow):
                 new_source.on_probe_status = self._on_tv_probe_status
             new_source.connect()
             self._apply_tv_exchange_to_source(new_source)
+            self._apply_tv_proxy_to_source(new_source)
             new_source.subscribe(symbol, timeframe)
 
             self._ctx.data_source = new_source
@@ -4130,6 +4143,19 @@ class MainWindow(QMainWindow):
             self._ctx.settings = settings
             self._ai_sidebar.bind_settings(settings)
             self._apply_chart_display_settings()
+
+    def _open_tradingview_proxy_dialog(self) -> None:
+        """Open TradingView-only proxy settings and apply a saved value immediately."""
+        from pa_agent.config.settings import Settings
+        from pa_agent.gui.tradingview_proxy_dialog import TradingViewProxyDialog
+
+        settings: Settings = self._ctx.settings  # type: ignore[assignment]
+        if settings is None:
+            settings = Settings()
+        dialog = TradingViewProxyDialog(settings, parent=self)
+        if dialog.exec():
+            self._ctx.settings = settings
+            self._apply_tv_proxy_to_source(getattr(self._ctx, "data_source", None))
 
     def _apply_chart_display_settings(self) -> None:
         """Sync chart label font sizes and decision-flow zoom from persisted settings."""
