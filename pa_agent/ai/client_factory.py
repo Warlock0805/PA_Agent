@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from pa_agent.ai.cursor_connector import is_openclaw_cs_model
@@ -12,9 +13,16 @@ from pa_agent.config.settings import AIProviderSettings
 def create_ai_client(
     settings: AIProviderSettings,
     logger_: logging.Logger | None = None,
+    *,
+    codex_bridge_dir: Path | None = None,
 ) -> Any:
-    """Return CursorSdkClient for ``openclaw_cs*``, else DeepSeekClient."""
+    """Return the client selected by runtime mode and provider route."""
     log = logger_ or logging.getLogger(__name__)
+    if settings.runtime_mode == "codex":
+        from pa_agent.ai.codex_bridge import CodexBridgeClient
+
+        log.info("AI client route: current Codex conversation")
+        return CodexBridgeClient(settings=settings, bridge_dir=codex_bridge_dir)
     if is_openclaw_cs_model(settings.model):
         from pa_agent.ai.cursor_sdk_client import CursorSdkClient
 

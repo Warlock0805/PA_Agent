@@ -25,3 +25,11 @@ def test_create_ai_client_openclaw_uses_deepseek_client() -> None:
     )
     client = create_ai_client(settings)
     assert isinstance(client, DeepSeekClient)
+
+
+def test_create_ai_client_codex_mode_uses_bridge(tmp_path) -> None:
+    from pa_agent.ai.codex_bridge import CodexBridgeClient
+
+    settings = AIProviderSettings(runtime_mode="codex")
+    client = create_ai_client(settings, codex_bridge_dir=tmp_path)
+    assert isinstance(client, CodexBridgeClient)

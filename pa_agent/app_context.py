@@ -6,6 +6,19 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+def _sync_provider_routes_on_load(settings: Any, save_path: Any) -> None:
+    """Apply external provider discovery only when API mode owns the route."""
+    if getattr(settings.provider, "runtime_mode", "api") == "codex":
+        return
+    from pa_agent.ai.cursor_connector import sync_cursor_provider_on_load
+    from pa_agent.ai.qclaw_connector import sync_qclaw_agent_provider_on_load
+    from pa_agent.ai.workbuddy_connector import sync_workbuddy_provider_on_load
+
+    sync_qclaw_agent_provider_on_load(settings, save_path=save_path)
+    sync_workbuddy_provider_on_load(settings, save_path=save_path)
+    sync_cursor_provider_on_load(settings, save_path=save_path)
+
+
 @dataclass(slots=True)
 class AppContext:
     """Carries shared resources to GUI widgets and orchestrators."""
@@ -36,9 +49,8 @@ class AppContext:
             PROMPT_DIR,
         )
         from pa_agent.config.settings import load_settings
-        from pa_agent.util.logging import configure_logging, update_api_key
+        from pa_agent.util.logging import configure_logging
         from pa_agent.util.event_bus import EventBus
-        from pa_agent.util.mask_secret import mask_secret
         from pa_agent.data.factory import create_data_source, normalize_data_source_kind
         from pa_agent.ai.client_factory import create_ai_client
         from pa_agent.ai.prompt_assembler import PromptAssembler
@@ -50,13 +62,7 @@ class AppContext:
 
         # ── Settings ──────────────────────────────────────────────────────────
         settings = load_settings(SETTINGS_JSON_PATH)
-        from pa_agent.ai.qclaw_connector import sync_qclaw_agent_provider_on_load
-        from pa_agent.ai.workbuddy_connector import sync_workbuddy_provider_on_load
-        from pa_agent.ai.cursor_connector import sync_cursor_provider_on_load
-
-        sync_qclaw_agent_provider_on_load(settings, save_path=SETTINGS_JSON_PATH)
-        sync_workbuddy_provider_on_load(settings, save_path=SETTINGS_JSON_PATH)
-        sync_cursor_provider_on_load(settings, save_path=SETTINGS_JSON_PATH)
+        _sync_provider_routes_on_load(settings, SETTINGS_JSON_PATH)
 
         # ── Logging (with API key masking) ────────────────────────────────────
         configure_logging(api_key=settings.provider.api_key)
@@ -99,8 +105,6 @@ class AppContext:
             app_logger.warning("Initial data source subscription failed: %s", exc)
 
         # ── AI client ─────────────────────────────────────────────────────────
-        from pa_agent.ai.client_factory import create_ai_client
-
         client = create_ai_client(settings.provider, logger_=app_logger)
 
         # ── Prompt assembler ──────────────────────────────────────────────────
