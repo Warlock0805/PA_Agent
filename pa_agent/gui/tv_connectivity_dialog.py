@@ -21,6 +21,7 @@ _MESSAGE = (
     "  · 美股及指数（NYSE、NASDAQ、SP）\n"
     "  · 外汇、贵金属、商品期货\n\n"
     "解决方案：\n"
+    "  · 在 PA Agent 的 TradingView 代理设置中填写本地 HTTP/HTTPS 或 SOCKS5 代理\n"
     "  · 把你的VPN工具设成全局，并开启TUN(虚拟网卡)模式，如果还不行：\n"
     "  · 使用云服务器部署本程序（推荐）—— 云服务器可正常连接 TradingView\n"
     "  · 或切换回 MT5 数据源，仅使用 MT5 提供的品种数据"

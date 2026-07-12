@@ -107,3 +107,9 @@ def test_check_tradingview_connectivity_uses_given_proxy(monkeypatch) -> None:
     assert ok is True
     assert detail is None
     assert seen == [proxy]
+
+
+def test_connectivity_dialog_mentions_in_app_proxy_setting() -> None:
+    from pa_agent.gui.tv_connectivity_dialog import _MESSAGE
+
+    assert "TradingView 代理" in _MESSAGE
