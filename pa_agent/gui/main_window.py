@@ -1370,7 +1370,12 @@ class MainWindow(QMainWindow):
             if not self._analysis_in_progress:
                 self._status_bar.clearMessage()
             return
-        self._status_bar.showMessage(text)
+        display_text = text
+        if self._is_codex_runtime() and text == "阶段一分析中…":
+            display_text = "阶段一请求已生成，等待当前 Codex 对话处理…"
+        elif self._is_codex_runtime() and text == "阶段二分析中…":
+            display_text = "阶段二请求已生成，等待当前 Codex 对话处理…"
+        self._status_bar.showMessage(display_text)
         if text == "数据延迟":
             self._update_symbol_data_alert()
         if self._analysis_in_progress:
@@ -4038,10 +4043,17 @@ class MainWindow(QMainWindow):
             self._open_settings_dialog(focus_api_key=True)
 
     def _has_api_key_configured(self) -> bool:
-        from pa_agent.config.settings import provider_api_key_configured
+        from pa_agent.config.settings import provider_analysis_ready
 
         settings = getattr(self._ctx, "settings", None)
-        return provider_api_key_configured(settings)
+        return provider_analysis_ready(settings)
+
+    def _is_codex_runtime(self) -> bool:
+        settings = getattr(self._ctx, "settings", None)
+        return bool(
+            settings is not None
+            and getattr(settings.provider, "runtime_mode", "api") == "codex"
+        )
 
     def _refresh_api_key_ui_state(self) -> None:
         """Show or hide API Key warning and sync submit button state."""
@@ -4139,6 +4151,9 @@ class MainWindow(QMainWindow):
             self._ai_mode_label.setText("")
             return
         p = settings.provider
+        if getattr(p, "runtime_mode", "api") == "codex":
+            self._ai_mode_label.setText("AI：当前 Codex 对话 · 无需 API Key")
+            return
         base = (p.base_url or "").lower()
         if "deepseek.com" in base:
             thinking = "开" if p.thinking else "关"

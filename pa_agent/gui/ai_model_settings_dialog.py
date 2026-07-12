@@ -61,6 +61,12 @@ class AIModelSettingsDialog(QDialog):
         provider_group = QGroupBox("AI 提供商")
         form = QFormLayout(provider_group)
 
+        self._runtime_mode_combo = QComboBox()
+        self._runtime_mode_combo.addItem("API 模式", "api")
+        self._runtime_mode_combo.addItem("当前 Codex 对话（无需 API Key）", "codex")
+        self._runtime_mode_combo.currentIndexChanged.connect(self._sync_runtime_mode_ui)
+        form.addRow("AI 运行模式:", self._runtime_mode_combo)
+
         self._model_edit = QLineEdit()
         form.addRow("模型 (model):", self._model_edit)
 
@@ -119,6 +125,9 @@ class AIModelSettingsDialog(QDialog):
 
     def _load_values(self) -> None:
         p = self._settings.provider
+        mode_index = self._runtime_mode_combo.findData(p.runtime_mode)
+        if mode_index >= 0:
+            self._runtime_mode_combo.setCurrentIndex(mode_index)
         self._model_edit.setText(p.model)
         self._base_url_edit.setText(p.base_url)
         self._api_key_edit.setText(p.api_key)
@@ -126,9 +135,16 @@ class AIModelSettingsDialog(QDialog):
         idx = self._reasoning_effort_combo.findText(p.reasoning_effort)
         if idx >= 0:
             self._reasoning_effort_combo.setCurrentIndex(idx)
+        self._sync_runtime_mode_ui()
 
     def _on_save(self) -> None:
         p = self._settings.provider
+        runtime_mode = self._runtime_mode_combo.currentData()
+        p.runtime_mode = runtime_mode  # type: ignore[assignment]
+        if runtime_mode == "codex":
+            save_settings(self._settings, SETTINGS_JSON_PATH)
+            self.accept()
+            return
         model = self._model_edit.text().strip()
         base_url = self._base_url_edit.text().strip()
         api_key = self._api_key_edit.text().strip()
@@ -173,6 +189,20 @@ class AIModelSettingsDialog(QDialog):
     def focus_api_key_field(self) -> None:
         self._api_key_edit.setFocus(Qt.FocusReason.OtherFocusReason)
         self._api_key_edit.selectAll()
+
+    def _sync_runtime_mode_ui(self) -> None:
+        """Disable provider-only controls when Codex owns model execution."""
+        is_api_mode = self._runtime_mode_combo.currentData() == "api"
+        for widget in (
+            self._model_edit,
+            self._base_url_edit,
+            self._api_key_edit,
+            self._show_key_btn,
+            self._thinking_check,
+            self._reasoning_effort_combo,
+            self._api_key_help_btn,
+        ):
+            widget.setEnabled(is_api_mode)
 
     def _toggle_api_key_visibility(self, checked: bool) -> None:
         if checked:
